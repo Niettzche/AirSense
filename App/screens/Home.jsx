@@ -1,4 +1,6 @@
-import React, { useRef, useState } from 'react';
+
+import React, { useRef, useEffect, useState } from 'react';
+import Navbar from '../components/Navbar.jsx'
 import {
   View,
   Text,
@@ -8,6 +10,7 @@ import {
   FlatList,
   Image,
   TouchableOpacity,
+  Animated
 } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
 import { Ionicons } from '@expo/vector-icons';
@@ -23,11 +26,29 @@ const newsData = [
 ];
 
 export default function Home() {
-  // Datos estáticos de la gráfica
   const finalData = [50, 60, 55, 70, 65, 80, 75];
+
+  // ----- Animación de la gráfica -----
+  const animatedChart = useRef(new Animated.Value(0)).current;
+  const [animatedData, setAnimatedData] = useState(finalData.map(() => 0));
+
+  useEffect(() => {
+    Animated.timing(animatedChart, {
+      toValue: 1,
+      duration: 2000,
+      useNativeDriver: false,
+    }).start();
+
+    const listener = animatedChart.addListener(({ value }) => {
+      setAnimatedData(finalData.map(d => d * value));
+    });
+
+    return () => animatedChart.removeListener(listener);
+  }, []);
+
   const data = {
     labels: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'],
-    datasets: [{ data: finalData, color: () => `rgba(255,255,255,1)`, strokeWidth: 2 }],
+    datasets: [{ data: animatedData, color: () => `rgba(255,255,255,1)`, strokeWidth: 2 }],
   };
 
   const chartConfig = {
@@ -49,6 +70,17 @@ export default function Home() {
     index,
   });
 
+  // Animación pop-up para los bloques
+  const dataCardAnimations = useRef([new Animated.Value(0), new Animated.Value(0), new Animated.Value(0)]).current;
+  const newsAnimations = useRef(newsData.map(() => new Animated.Value(0))).current;
+
+  useEffect(() => {
+    // Animar data cards
+    Animated.stagger(150, dataCardAnimations.map(anim => Animated.spring(anim, { toValue: 1, useNativeDriver: true, bounciness: 10 }))).start();
+    // Animar noticias
+    Animated.stagger(150, newsAnimations.map(anim => Animated.spring(anim, { toValue: 1, useNativeDriver: true, bounciness: 10 }))).start();
+  }, []);
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Header con perfil e icono de configuración */}
@@ -69,18 +101,15 @@ export default function Home() {
       <View style={styles.airdata}>
         <Text style={styles.airdataTitle}>Calidad del aire</Text>
         <View style={styles.dataRow}>
-          <View style={styles.dataCard}>
-            <Text style={styles.dataLabel}>AQI</Text>
-            <Text style={styles.dataValue}>78</Text>
-          </View>
-          <View style={styles.dataCard}>
-            <Text style={styles.dataLabel}>PM2.5</Text>
-            <Text style={styles.dataValue}>35 µg/m³</Text>
-          </View>
-          <View style={styles.dataCard}>
-            <Text style={styles.dataLabel}>PM10</Text>
-            <Text style={styles.dataValue}>50 µg/m³</Text>
-          </View>
+          {['AQI', 'PM2.5', 'PM10'].map((label, index) => (
+            <Animated.View key={index} style={[styles.dataCard, { 
+              opacity: dataCardAnimations[index],
+              transform: [{ scale: dataCardAnimations[index] }]
+            }]}>
+              <Text style={styles.dataLabel}>{label}</Text>
+              <Text style={styles.dataValue}>{label === 'AQI' ? 78 : label === 'PM2.5' ? 35 : 50} µg/m³</Text>
+            </Animated.View>
+          ))}
         </View>
 
         <LineChart
@@ -94,7 +123,7 @@ export default function Home() {
         />
       </View>
 
-      {/* Carrusel Noticias (sin botones, ocupa todo el contenedor) */}
+      {/* Carrusel Noticias */}
       <View
         style={[styles.news, { height: screenHeight * 0.25 }]}
         onLayout={(e) => setViewportWidth(e.nativeEvent.layout.width)}
@@ -111,31 +140,31 @@ export default function Home() {
             snapToInterval={viewportWidth}
             decelerationRate="fast"
             snapToAlignment="start"
-            renderItem={({ item }) => (
-              <View style={[styles.newsCard, { width: viewportWidth }]}>
+            renderItem={({ item, index }) => (
+              <Animated.View style={[styles.newsCard, { width: viewportWidth, 
+                opacity: newsAnimations[index],
+                transform: [{ scale: newsAnimations[index] }]
+              }]}>
                 <Image source={{ uri: item.image }} style={styles.newsImage} />
                 <View style={styles.overlay}>
                   <Text style={styles.newsText}>{item.title}</Text>
                 </View>
-              </View>
+              </Animated.View>
             )}
           />
         )}
       </View>
+      <Navbar />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f5f5' },
-
-  // Header
   welcome: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 10 },
   topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   profilePic: { width: 40, height: 40, borderRadius: 20 },
   title: { fontSize: 25, fontWeight: 'bold', color: '#333', marginTop: 10 },
-
-  // Calidad del aire
   airdata: {
     backgroundColor: '#2d572c',
     marginHorizontal: 20,
@@ -149,8 +178,6 @@ const styles = StyleSheet.create({
   dataCard: { alignItems: 'center', flex: 1 },
   dataLabel: { color: '#fff', fontSize: 14, fontWeight: 'bold' },
   dataValue: { color: '#fff', fontSize: 18, fontWeight: 'bold', marginTop: 4 },
-
-  // Carrusel Noticias
   news: {
     backgroundColor: '#fff',
     marginHorizontal: 20,

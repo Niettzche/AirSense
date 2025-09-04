@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, Text, ActivityIndicator, Alert } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
+import Navbar from '../components/Navbar.jsx'
 
 export default function MapScreen() {
   const [location, setLocation] = useState(null);
@@ -42,6 +43,7 @@ export default function MapScreen() {
       <MapView style={styles.map} region={location}>
         <Marker coordinate={location} title="Tú estás aquí" />
       </MapView>
+      <Navbar/>
     </View>
   );
 }
